@@ -1,4 +1,4 @@
-import * as client from "nodegit";
+import client from "nodegit";
 import { AppModule } from "./types/app";
 import * as fs from "./fs";
 import { sleep } from "./helper";
@@ -9,12 +9,14 @@ const FALSE = 0;
 const TRUE = 1;
 
 export function initializeRepo(path: string) {
-  return client.Repository.open(path)
-    .catch(() => client.Repository.init(path, FALSE))
-    .then(async (repo) => {
-      await fs.createFolderInRepoIfDoesNotExist(repo, "modules");
-      return repo;
-    });
+  return fs.createFolderIfDoesNotExist(path).then(() => {
+    return client.Repository.open(path)
+      .catch(() => client.Repository.init(path, FALSE))
+      .then(async (repo) => {
+        await fs.createFolderInRepoIfDoesNotExist(repo, "modules");
+        return repo;
+      });
+  });
 }
 
 export function parseModuleData(module: AppModule) {
@@ -47,16 +49,25 @@ export async function installModule(
   module: AppModule,
   token: string
 ) {
-  const submodule = await client.Submodule.addSetup(
-    repo,
-    module.repo,
-    getModulePath(module),
-    FALSE
-  );
-  await submodule.update(TRUE, {
-    fetchOpts: getFetchOptions(token),
-  });
+  const path = getModulePath(module);
+  let submodule: client.Submodule;
+  const exist = await fs.folderExistInRepo(repo, path);
+  if (exist) {
+    submodule = await client.Submodule.lookup(repo, path);
+  } else {
+    submodule = await client.Submodule.addSetup(repo, module.repo, path, FALSE);
+  }
+  // await submodule.update(TRUE, {
+  //   fetchOpts: getFetchOptions(token),
+  // });
   const submoduleRepo = await submodule.open();
+  await submoduleRepo.fetch("origin", getFetchOptions(token));
+  const commit = await submoduleRepo.getBranchCommit("origin/" + module.branch);
+  try {
+    await submoduleRepo.createBranch(module.branch, commit);
+  } catch(e) {
+    // branch already exists
+  }
   await submoduleRepo.checkoutBranch(module.branch);
 }
 

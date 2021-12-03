@@ -16,17 +16,17 @@ export async function executer(app: App, mono: gitClient.Repository) {
 
         if (action.type === "pull-modules") {
             await git.awaitForPull(mono);
-            break;
+            continue;
         }
 
         if (action.type === "bootstrap") {
             await cli.bootstrap(app);
-            break;
+            continue;
         }
 
         if (action.type === "run-action") {
             await cli.runAction(app, action.action);
-            break;
+            continue;
         }
         throw new Error("Unknown action type: " + (action as any).type);
     }
