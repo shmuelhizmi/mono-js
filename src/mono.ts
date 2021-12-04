@@ -5,6 +5,7 @@ import glob from "glob";
 import { App, AppModule } from "./types/app";
 import { promisify } from "util";
 import * as fs from "./fs";
+import { MonoRepoConfig } from "./types/mono";
 
 export async function getWorkspacePackages(
   mono: gitClient.Repository,
@@ -84,7 +85,7 @@ export async function generateRootPackageJson(
     private: true,
     workspaces: {
       packages: relativePackagesFolders,
-      "no-hoist": ["*"],
+      nohoist: ["*"],
     },
     resolutions: resolutions,
   };
@@ -93,4 +94,34 @@ export async function generateRootPackageJson(
 export async function spawnMonoRepo(mono: gitClient.Repository, app: App) {
   const rootPackageJson = await generateRootPackageJson(mono, app);
   await fs.writeJson(mono, "package.json", rootPackageJson);
+  await fs.write(
+    mono,
+    ".gitignore",
+    `node_modules`
+  );
+  await monoConfigSet(mono, "isBootstraped", false);
+}
+
+export function monoConfigGet<K extends keyof MonoRepoConfig>(
+  mono: gitClient.Repository,
+  key: K
+): MonoRepoConfig[K] {
+  const configPath = pathClient.join(mono.workdir(), "package.json");
+  const config = require(configPath);
+
+  return config.monoJSConfig?.[key] as MonoRepoConfig[K];
+}
+
+export async function monoConfigSet<K extends keyof MonoRepoConfig>(
+  mono: gitClient.Repository,
+  key: K,
+  value: MonoRepoConfig[K]
+) {
+  const configPath = pathClient.join(mono.workdir(), "package.json");
+  const config = require(configPath);
+
+  config.monoJSConfig = config.monoJSConfig || {};
+  config.monoJSConfig[key] = value;
+
+  await fs.writeJson(mono, "package.json", config);
 }

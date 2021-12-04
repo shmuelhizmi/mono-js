@@ -4,7 +4,7 @@ import * as fs from "./fs";
 import { sleep } from "./helper";
 
 const MODULE_FOLDER = "modules";
-const PULL_INTERVAL = 20000;
+const PULL_INTERVAL = 10000;
 const FALSE = 0;
 const TRUE = 1;
 
@@ -57,16 +57,13 @@ export async function installModule(
   } else {
     submodule = await client.Submodule.addSetup(repo, module.repo, path, FALSE);
   }
-  // await submodule.update(TRUE, {
-  //   fetchOpts: getFetchOptions(token),
-  // });
   const submoduleRepo = await submodule.open();
   await submoduleRepo.fetch("origin", getFetchOptions(token));
   const commit = await submoduleRepo.getBranchCommit("origin/" + module.branch);
   try {
     await submoduleRepo.createBranch(module.branch, commit);
   } catch(e) {
-    // branch already exists
+    await submoduleRepo.mergeBranches(module.branch, "origin/" + module.branch);
   }
   await submoduleRepo.checkoutBranch(module.branch);
 }
@@ -77,11 +74,13 @@ export async function awaitForPull(repo: client.Repository) {
     for (const module of await repo.getSubmoduleNames()) {
       const submodule = await client.Submodule.lookup(repo, module);
       const submoduleRepo = await submodule.open();
-      const branch = await (await submoduleRepo.getCurrentBranch()).name();
+      const branch = await (await submoduleRepo.getCurrentBranch()).shorthand();
       await submoduleRepo.fetch("origin");
+
+      const remoteCommit = await submoduleRepo.getBranchCommit("origin/" + branch);
+      const localCommit = await submoduleRepo.getBranchCommit(branch);
       if (
-        submoduleRepo.getBranchCommit("origin/" + branch) ===
-        submoduleRepo.getHeadCommit()
+        remoteCommit.toString() === localCommit.toString()
       ) {
         continue;
       }

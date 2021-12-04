@@ -2,7 +2,6 @@ import * as pathClient from "path";
 import * as fsClient from "fs/promises";
 import * as gitClient from "nodegit";
 
-
 export function createFolderInRepoIfDoesNotExist(
   repo: gitClient.Repository,
   folderPath: string
@@ -11,9 +10,7 @@ export function createFolderInRepoIfDoesNotExist(
   return createFolderIfDoesNotExist(newFolderPath);
 }
 
-export function createFolderIfDoesNotExist(
-  folderPath: string
-): Promise<void> {
+export function createFolderIfDoesNotExist(folderPath: string): Promise<void> {
   return fsClient
     .stat(folderPath)
     .then(() => {
@@ -39,10 +36,18 @@ export async function folderExistInRepo(
 }
 
 export async function writeJson(
-    repo: gitClient.Repository,
-    filePath: string,
-    data: any
+  repo: gitClient.Repository,
+  filePath: string,
+  data: any
 ) {
-    const filePathInRepo = pathClient.join(repo.workdir(), filePath);
-    await fsClient.writeFile(filePathInRepo, JSON.stringify(data, null, 2));
+  return write(repo, filePath, JSON.stringify(data, null, 2));
+}
+
+export async function write(
+  repo: gitClient.Repository,
+  filePath: string,
+  data: string
+) {
+  const filePathInRepo = pathClient.join(repo.workdir(), filePath);
+  await fsClient.writeFile(filePathInRepo, data);
 }
